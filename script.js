@@ -124,42 +124,119 @@ function drawBoard() {
 function putStone(x, y) {
     if (board[y][x] !== 0) return; // すでに石がある
 
-    console.log(userHistory);
-
-    // ルールに基づいて挟めるか確認
     if (checkAndFlip(x, y, currentPlayer, true)) {
         board[y][x] = currentPlayer;
         const kifu = toKifu(x, y);
-
         userHistory.push(kifu); // 履歴に追加
 
-        const nextPlayerName = (currentPlayer === 1) ? '白' : '黒';
-        const matches = findMatchingJoseki();
-
-        // 1. 一行目のメッセージ
-        let line01 = `${kifu} に置きました。次は ${nextPlayerName} です`;
+        // 1. まず手番を仮に交代させる
+        let nextPlayer = 3 - currentPlayer;
         
-        // 2. 二行目のメッセージ（定石判定）
-        let line02 = "";
-
-        // メッセージの更新
-        if (matches.length > 0) {
-            const names = matches.map(m => m.name).join(', ');
-            line02 = `【定石：${names} （${userHistory.length}手目）】`;
+        // 2. 次のプレイヤーが置けるかチェック
+        if (!canMove(nextPlayer)) {
+            // 3. 次のプレイヤーが置けない場合、さらに現プレイヤーが置けるかチェック
+            if (!canMove(currentPlayer)) {
+                // 両者置けない ＝ 終局
+                drawBoard();
+                handleGameOver();
+                return;
+            } else {
+                // 相手だけ置けない ＝ パス（手番は今のプレイヤーのまま）
+                alert(`${nextPlayer === 1 ? '黒' : '白'}は置ける場所がないためパスです。`);
+                // nextPlayer を更新せず、currentPlayer のまま続行
+            }
         } else {
-            line02 = `【定石外】`;
+            // 相手が置けるなら、正式に手番交代
+            currentPlayer = nextPlayer;
         }
-        
-        // 3. innerHTML を使って、<br> タグで改行して出力
-        statusElement.innerHTML = `${line01}<br>${line02}`;
 
-        // プレイヤー交代
-        currentPlayer = 3 - currentPlayer;
-        
+        // 表示用メッセージの作成
+        const nextPlayerName = (currentPlayer === 1) ? '黒' : '白';
+        const matches = findMatchingJoseki();
+        let line01 = `${kifu} に置きました。次は ${nextPlayerName} です`;
+        let line02 = matches.length > 0 ? 
+            `【定石：${matches.map(m => m.name).join(', ')} （${userHistory.length}手目）】` : 
+            `【定石外】`;
+
+        statusElement.innerHTML = `${line01}<br>${line02}`;
         drawBoard();
     } else {
         alert("そこには置けません（相手の石を挟めません）");
     }
+}
+
+//「置ける場所があるか」判定
+function canMove(color) {
+    for (let y = 0; y < 8; y++) {
+        for (let x = 0; x < 8; x++) {
+            // すでに石がある場所はスキップ
+            if (board[y][x] !== 0) continue;
+            
+            // 1方向でもひっくり返せるなら、その色は「置ける場所がある」
+            if (checkFlippable(x, y, color)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+function checkFlippable(startX, startY, color) {
+    const directions = [
+        [-1, -1], [-1, 0], [-1, 1],
+        [ 0, -1],          [ 0, 1],
+        [ 1, -1], [ 1, 0], [ 1, 1]
+    ];
+    const opponent = 3 - color;
+
+    for (const [dy, dx] of directions) {
+        let x = startX + dx;
+        let y = startY + dy;
+        let count = 0;
+
+        while (x >= 0 && x < 8 && y >= 0 && y < 8 && board[y][x] === opponent) {
+            x += dx;
+            y += dy;
+            count++;
+        }
+
+        if (count > 0 && x >= 0 && x < 8 && y >= 0 && y < 8 && board[y][x] === color) {
+            return true;
+        }
+    }
+    return false;
+}
+
+//石の数を数える関数
+function calculateScore() {
+    let black = 0;
+    let white = 0;
+
+    for (let y = 0; y < 8; y++) {
+        for (let x = 0; x < 8; x++) {
+            if (board[y][x] === 1) black++;
+            if (board[y][x] === 2) white++;
+        }
+    }
+
+    return { black, white };
+}
+
+function handleGameOver() {
+    const score = calculateScore();
+    let message = `ゲーム終了！\n黒: ${score.black}石\n白: ${score.white}石\n\n`;
+
+    if (score.black > score.white) {
+        message += "黒の勝ちです！";
+    } else if (score.white > score.black) {
+        message += "白の勝ちです！";
+    } else {
+        message += "引き分けです。";
+    }
+
+    // アラートで表示、または画面上の特定のエリアに表示
+    alert(message);
+    document.getElementById('status').innerText = "ゲーム終了";
 }
 
 // 最初の描画
