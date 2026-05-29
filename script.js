@@ -133,10 +133,11 @@ function putStone(x, y) {
 
         userHistory.push(kifu); // 履歴に追加
 
+        const nextPlayerName = (currentPlayer === 1) ? '白' : '黒';
         const matches = findMatchingJoseki();
 
         // 1. 一行目のメッセージ
-        let line01 = `${kifu} に置きました。次は ${currentPlayer === 1 ? '黒' : '白'} です`;
+        let line01 = `${kifu} に置きました。次は ${nextPlayerName} です`;
         
         // 2. 二行目のメッセージ（定石判定）
         let line02 = "";
