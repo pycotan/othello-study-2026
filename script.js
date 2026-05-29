@@ -2,6 +2,24 @@ const boardElement = document.getElementById('board');
 const statusElement = document.getElementById('status');
 const cols = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 
+const josekiList = [
+    { name: "野ウサギ", steps: ["f5", "d6", "c6", "f4", "e6", "g5", "f3", "e3"] },
+    { name: "ラルウサギ", steps: ["f5", "d6", "c5", "f4", "e3", "c6", "d3", "f3", "e6"] },
+    { name: "横ウサギ", steps: ["f5", "d6", "c5", "f4", "e3", "c6", "d3", "g5", "g4"] },
+    { name: "金魚", steps: ["f5", "d6", "c3", "d3", "c4", "f4", "c5", "b3", "c2", "e6", "c6", "b4"] },
+    { name: "ブライトウェル", steps: ["f5", "d6", "c3", "d3", "c4", "f4", "e3", "f3"] },
+    { name: "リーダーズタイガー", steps: ["f5", "d6", "c3", "d3", "c4", "f4", "e6", "f6", "e3", "c5"] },
+    { name: "コンポス", steps: ["f5", "d6", "c3", "d3", "c4", "f4", "f6", "f3", "e6", "e7", "d7", "g6"] },
+    { name: "猫", steps: ["f5", "d6", "c4", "d3", "c5", "f4", "e3", "f3"] },
+    { name: "羊", steps: ["f5", "d6", "c4", "d3", "e6", "f4", "e3", "f3"] },
+    { name: "馬", steps: ["f5", "d6", "c5", "f4", "d3", "e3", "g4", "g3"] },
+    { name: "Fローズ", steps: ["f5", "d6", "c5", "f4", "e3", "c6", "d3", "f6", "e6", "d7", "g4", "c4", "g5", "c3", "f7", "d2", "e7", "f2", "c8", "f3", "c7", "d8", "e8", "g3"] },
+    { name: "野苺", steps: ["f5", "f6", "e6", "f4", "g5", "e7", "f7", "h5", "e8"] },
+    { name: "ネズミ", steps: ["f5", "f4", "e3", "f6", "d3", "e2", "f2", "c5", "f1"] }
+];
+
+let userHistory = []; // ユーザーが打った手の履歴を保存用
+
 // 盤面データ (8x8) 0:空, 1:黒, 2:白
 let board = Array(8).fill().map(() => Array(8).fill(0));
 let currentPlayer = 1; // 1: 黒, 2: 白
@@ -15,6 +33,14 @@ board[4][3] = 1; // d5
 // 数値を棋譜形式(f5など)に変換する関数
 function toKifu(x, y) {
     return cols[x] + (y + 1);
+}
+
+// --- 関数追加：現在の履歴から該当する定石を探す ---
+function findMatchingJoseki() {
+    return josekiList.filter(j => {
+        // ユーザーが打った手数分だけ、定石の出だしが一致するかチェック
+        return userHistory.every((step, index) => step === j.steps[index]);
+    });
 }
 
 // 石を置けるかチェックし、ひっくり返す関数
@@ -98,14 +124,37 @@ function drawBoard() {
 function putStone(x, y) {
     if (board[y][x] !== 0) return; // すでに石がある
 
+    console.log(userHistory);
+
     // ルールに基づいて挟めるか確認
     if (checkAndFlip(x, y, currentPlayer, true)) {
         board[y][x] = currentPlayer;
         const kifu = toKifu(x, y);
+
+        userHistory.push(kifu); // 履歴に追加
+
+        const matches = findMatchingJoseki();
+
+        // 1. 一行目のメッセージ
+        let line01 = `${kifu} に置きました。次は ${currentPlayer === 1 ? '黒' : '白'} です`;
         
+        // 2. 二行目のメッセージ（定石判定）
+        let line02 = "";
+
+        // メッセージの更新
+        if (matches.length > 0) {
+            const names = matches.map(m => m.name).join(', ');
+            line02 = `【定石：${names} （${userHistory.length}手目）】`;
+        } else {
+            line02 = `【定石外】`;
+        }
+        
+        // 3. innerHTML を使って、<br> タグで改行して出力
+        statusElement.innerHTML = `${line01}<br>${line02}`;
+
         // プレイヤー交代
         currentPlayer = 3 - currentPlayer;
-        statusElement.innerText = `${kifu} に置きました。次は ${currentPlayer === 1 ? '黒' : '白'} です`;
+        
         drawBoard();
     } else {
         alert("そこには置けません（相手の石を挟めません）");
