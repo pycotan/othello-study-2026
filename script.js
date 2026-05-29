@@ -4,6 +4,7 @@ const cols = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 
 // 盤面データ (8x8) 0:空, 1:黒, 2:白
 let board = Array(8).fill().map(() => Array(8).fill(0));
+let currentPlayer = 1; // 1: 黒, 2: 白
 
 // 初期配置
 board[3][3] = 2; // d4
@@ -14,6 +15,42 @@ board[4][3] = 1; // d5
 // 数値を棋譜形式(f5など)に変換する関数
 function toKifu(x, y) {
     return cols[x] + (y + 1);
+}
+
+// 石を置けるかチェックし、ひっくり返す関数
+function checkAndFlip(startX, startY, color, doFlip) {
+    const opponent = 3 - color; // 1なら2, 2なら1
+    let canPlace = false;
+
+    // 8方向のオフセット（dx, dy）
+    const directions = [
+        [0, 1], [0, -1], [1, 0], [-1, 0],
+        [1, 1], [1, -1], [-1, 1], [-1, -1]
+    ];
+
+    for (let [dx, dy] of directions) {
+        let x = startX + dx;
+        let y = startY + dy;
+        let flippedPositions = [];
+
+        // 隣が相手の石である間、進み続ける
+        while (x >= 0 && x < 8 && y >= 0 && y < 8 && board[y][x] === opponent) {
+            flippedPositions.push([x, y]);
+            x += dx;
+            y += dy;
+        }
+
+        // 相手の石の先に自分の石があれば「挟んだ」ことになる
+        if (x >= 0 && x < 8 && y >= 0 && y < 8 && board[y][x] === color && flippedPositions.length > 0) {
+            canPlace = true;
+            if (doFlip) {
+                for (let [fx, fy] of flippedPositions) {
+                    board[fy][fx] = color; // ひっくり返す
+                }
+            }
+        }
+    }
+    return canPlace;
 }
 
 // 盤面を描画する関数
@@ -61,13 +98,18 @@ function drawBoard() {
 function putStone(x, y) {
     if (board[y][x] !== 0) return; // すでに石がある
 
-    const kifu = toKifu(x, y);
-    console.log("置いた場所: " + kifu);
-
-    // 現状はクリックした場所に黒石を置くだけ（判定ロジックは今後追加）
-    board[y][x] = 1;
-    statusElement.innerText = "打った手: " + kifu;
-    drawBoard();
+    // ルールに基づいて挟めるか確認
+    if (checkAndFlip(x, y, currentPlayer, true)) {
+        board[y][x] = currentPlayer;
+        const kifu = toKifu(x, y);
+        
+        // プレイヤー交代
+        currentPlayer = 3 - currentPlayer;
+        statusElement.innerText = `${kifu} に置きました。次は ${currentPlayer === 1 ? '黒' : '白'} です`;
+        drawBoard();
+    } else {
+        alert("そこには置けません（相手の石を挟めません）");
+    }
 }
 
 // 最初の描画
