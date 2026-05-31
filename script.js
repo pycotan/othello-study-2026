@@ -19,6 +19,7 @@ const josekiList = [
 ];
 
 let userHistory = []; // ユーザーが打った手の履歴を保存用
+let userHistoryRaw = []; // ユーザーが打った手の「生の座標」を保存するための配列
 
 // 盤面データ (8x8) 0:空, 1:黒, 2:白
 let board = Array(8).fill().map(() => Array(8).fill(0));
@@ -29,6 +30,8 @@ board[3][3] = 2; // d4
 board[4][4] = 2; // e4
 board[3][4] = 1; // e5
 board[4][3] = 1; // d5
+
+let isGuideOn = false;
 
 // 座標を標準形(f5始まり)に変換するための変数
 let transformRule = null;
@@ -65,6 +68,12 @@ function getNormalizedKifu(x, y) {
     // ルールに従って変換
     const {nx, ny} = transformRule(x, y);
     return toKifu(nx, ny);
+}
+
+function toggleGuide() {
+    isGuideOn = !isGuideOn;
+    document.getElementById('guide-btn').innerText = `定石ガイド: ${isGuideOn ? 'ON' : 'OFF'}`;
+    drawBoard(); // 再描画してガイドを表示/非表示にする
 }
 
 // --- 関数追加：現在の履歴から該当する定石を探す ---
@@ -140,7 +149,31 @@ function drawBoard() {
         for (let x = 0; x < 8; x++) {
             const square = document.createElement('div');
             square.className = 'square';
+            square.style.position = 'relative'; // ガイドを中央に配置するため
             square.onclick = () => putStone(x, y);
+
+            // --- 定石ガイドの表示ロジック ---
+            if (isGuideOn && userHistory.length > 0) {
+                const matches = findMatchingJoseki();
+                if (matches.length > 0) {
+                    // すべての該当する定石から「次の手」を抽出
+                    const nextSteps = matches
+                        .map(m => m.steps[userHistory.length])
+                        .filter(step => step !== undefined);
+
+                    // 重複を除去（同じ場所に複数の定石が重なる場合があるため）
+                    const uniqueSteps = [...new Set(nextSteps)];
+
+                    uniqueSteps.forEach(stepKifu => {
+                        const guideCoord = getRealCoordinates(stepKifu);
+                        if (guideCoord.rx === x && guideCoord.ry === y) {
+                            const hint = document.createElement('div');
+                            hint.className = 'guide-hint';
+                            square.appendChild(hint);
+                        }
+                    });
+                }
+            }
 
             if (board[y][x] !== 0) {
                 const stone = document.createElement('div');
@@ -165,12 +198,7 @@ function putStone(x, y) {
 
         // 表示用には「生の手」を使いたいので、これまでの toKifu も残す
         const rawKifu = toKifu(x, y);
-
-        /* 
-        以前は生の手(f5はじまり)を履歴に入れていたが、定石判定のために正規化された棋譜を履歴に入れるように変更
-        const kifu = toKifu(x, y);
-        userHistory.push(kifu); // 履歴に追加
-        */
+        userHistoryRaw.push(rawKifu); // 生の座標も保存しておく
 
         // 1. まず手番を仮に交代させる
         let nextPlayer = 3 - currentPlayer;
@@ -294,6 +322,43 @@ function handleGameOver() {
     // アラートで表示、または画面上の特定のエリアに表示
     alert(message);
     document.getElementById('status').innerText = "ゲーム終了";
+}
+
+/**
+ * 定石データ(f5等)を、現在の回転状態に合わせた実際のx, yに変換する
+ */
+function getRealCoordinates(kifu) {
+    const kX = cols.indexOf(kifu[0]);
+    const kY = parseInt(kifu.slice(1)) - 1;
+
+    /*
+    // すべての座標(0-7, 0-7)をチェックして、
+    // transformRuleを通した結果がkX, kYと一致する場所を探す
+    for (let ry = 0; ry < 8; ry++) {
+        for (let rx = 0; rx < 8; rx++) {
+            const normalized = transformRule(rx, ry);
+            if (normalized.nx === kX && normalized.ny === kY) {
+                return { rx, ry };
+            }
+        }
+    }
+    return { rx: -1, ry: -1 };
+    */
+
+    // 2. 1手目の位置に基づいて、transformRuleと「逆」の計算を行う
+    const firstMove = userHistoryRaw[0]; // 最初の1手(firstMove)の生の座標
+
+    if (firstMove === "f5") {
+        return { rx: kX, ry: kY }; // f5: そのまま (5,4)
+    } else if (firstMove === "c4") {
+        return { rx: 7 - kX, ry: 7 - kY }; // c4(2,3)
+    } else if (firstMove === "d3") {
+        return { rx: 7 - kY, ry: 7 - kX }; // d3(3,2)
+    } else if (firstMove === "e6") {
+        return { rx: kY, ry: kX }; // e6(4,5)
+    }
+
+    return { rx: -1, ry: -1 };
 }
 
 // 最初の描画
