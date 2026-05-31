@@ -30,9 +30,41 @@ board[4][4] = 2; // e4
 board[3][4] = 1; // e5
 board[4][3] = 1; // d5
 
+// 座標を標準形(f5始まり)に変換するための変数
+let transformRule = null;
+
 // 数値を棋譜形式(f5など)に変換する関数
 function toKifu(x, y) {
     return cols[x] + (y + 1);
+}
+
+/**
+ * 座標(x, y)を正規化して棋譜形式で返す
+ */
+function getNormalizedKifu(x, y) {
+    if (userHistory.length === 0) {
+        // 1手目の位置から変換ルールを決定する
+
+        if (x === 5 && y === 4) {
+            // f5 (そのまま)
+            transformRule = (tx, ty) => ({nx: tx, ny: ty});
+        } else if (x === 2 && y === 3) {
+            // c4 (2,3)
+            transformRule = (tx, ty) => ({nx: 7-tx, ny: 7-ty});
+        } else if (x === 3 && y === 2) {
+            // d3(3,2) -> f5(5,4)
+            transformRule = (tx, ty) => ({nx: 7-ty, ny: 7-tx});  
+        } else if (x === 4 && y === 5) {
+            // e6 (4,5)
+            transformRule = (tx, ty) => ({nx: ty, ny: tx}); 
+        } else {
+            transformRule = (tx, ty) => ({nx: tx, ny: ty});
+        }
+    }
+
+    // ルールに従って変換
+    const {nx, ny} = transformRule(x, y);
+    return toKifu(nx, ny);
 }
 
 // --- 関数追加：現在の履歴から該当する定石を探す ---
@@ -126,8 +158,19 @@ function putStone(x, y) {
 
     if (checkAndFlip(x, y, currentPlayer, true)) {
         board[y][x] = currentPlayer;
+
+        // 【重要】正規化された棋譜を取得して履歴に保存
+        const normalizedKifu = getNormalizedKifu(x, y);
+        userHistory.push(normalizedKifu); 
+
+        // 表示用には「生の手」を使いたいので、これまでの toKifu も残す
+        const rawKifu = toKifu(x, y);
+
+        /* 
+        以前は生の手(f5はじまり)を履歴に入れていたが、定石判定のために正規化された棋譜を履歴に入れるように変更
         const kifu = toKifu(x, y);
         userHistory.push(kifu); // 履歴に追加
+        */
 
         // 1. まず手番を仮に交代させる
         let nextPlayer = 3 - currentPlayer;
@@ -159,7 +202,7 @@ function putStone(x, y) {
             const targetJoseki = matches[0];
             // ユーザーの手数と、その定石の全手数が一致したか判定
             if (userHistory.length === targetJoseki.steps.length) {
-                // 少し遅らせてアラートを出すと、石が置かれたのを確認できて親切です
+                // 少し遅らせてアラートを出すと、石が置かれたのを確認できる
                 setTimeout(() => {
                     alert(`【定石完了】\n${targetJoseki.name}：全${targetJoseki.steps.length}手`);
                 }, 100);
@@ -167,7 +210,7 @@ function putStone(x, y) {
         }
 
         // 表示用メッセージの作成
-        let line01 = `${kifu} に置きました。次は ${nextPlayerName} です`;
+        let line01 = `${rawKifu} に置きました。次は ${nextPlayerName} です`;
         let line02 = matches.length > 0 ? 
             `【定石：${matches.map(m => m.name).join(', ')} （${userHistory.length}手目）】` : 
             `【定石外】`;
