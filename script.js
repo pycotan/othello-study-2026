@@ -150,9 +150,23 @@ function putStone(x, y) {
             currentPlayer = nextPlayer;
         }
 
-        // 表示用メッセージの作成
+        
         const nextPlayerName = (currentPlayer === 1) ? '黒' : '白';
         const matches = findMatchingJoseki();
+
+        //定石完了アラート
+        if (matches.length === 1) {
+            const targetJoseki = matches[0];
+            // ユーザーの手数と、その定石の全手数が一致したか判定
+            if (userHistory.length === targetJoseki.steps.length) {
+                // 少し遅らせてアラートを出すと、石が置かれたのを確認できて親切です
+                setTimeout(() => {
+                    alert(`【定石完了】\n${targetJoseki.name}：全${targetJoseki.steps.length}手`);
+                }, 100);
+            }
+        }
+
+        // 表示用メッセージの作成
         let line01 = `${kifu} に置きました。次は ${nextPlayerName} です`;
         let line02 = matches.length > 0 ? 
             `【定石：${matches.map(m => m.name).join(', ')} （${userHistory.length}手目）】` : 
