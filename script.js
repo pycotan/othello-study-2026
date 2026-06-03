@@ -33,8 +33,9 @@ board[4][3] = 1; // d5
 
 let isGuideOn = false;
 
-// 座標を標準形(f5始まり)に変換するための変数
-let transformRule = null;
+// 座標を標準形(f5始まり)に変換するための関数
+// 引数をそのまま返す関数で初期化
+let transformRule = (tx, ty) => ({nx: tx, ny: ty});
 
 // 数値を棋譜形式(f5など)に変換する関数
 function toKifu(x, y) {
